@@ -62,22 +62,149 @@ unrestricted deployment this proxy configuration is simply unused.
 **Planned:** click/type/form interaction (each step gated at MEDIUM_RISK),
 multi-step authenticated sessions, PDF export.
 
-## Computer Agent — **architecture only, not connected**
+## Computer Agent — **real, v0.2**
 
-This is deliberately **not** implemented as "fake local control." No
-device has ever paired with JARVIS. What exists:
+A real local daemon (`apps/computer-agent`, binary name `jarvis-computer`)
+now exists and actually executes commands on the machine it runs on. It is
+honest about connectivity: with no daemon running (or one that's gone
+stale — no heartbeat in 45s), `ComputerAgent.execute()` reports
+`NOT_CONNECTED`, full stop, exactly like v0.1's placeholder did.
 
-- A typed WebSocket protocol (`packages/agents/src/computer-protocol.ts`):
-  pairing handshake with a pre-shared secret (`COMPUTER_AGENT_TOKEN`),
-  command envelopes (`open_app`, `run_shell`, `read_file`, `write_file`,
-  `screenshot`, `browser_control`), each carrying its own risk level.
-  The daemon evaluates and executes; JARVIS Core never gets local OS
-  credentials.
-- A `devices` table and pairing flow (`registerDevice` in `packages/db`).
-- `ComputerAgent.execute()` always returns `mode: "NOT_CONNECTED"` — even
-  if a device row exists — because the actual daemon (the piece that would
-  run on your Mac and speak this protocol) doesn't exist yet. Building
-  that daemon is the next real step for this capability.
+**Transport:** HTTP polling, not WebSocket. The daemon polls
+`GET /api/computer/device/commands/next` every `COMPUTER_AGENT_POLL_INTERVAL_MS`
+(default 2s), executes what it finds, and posts the result back — this is
+the "COMMAND QUEUE" from the architecture diagram, implemented directly as
+a REST-polled table (`computer_commands`) rather than a bidirectional
+socket. Simpler, and trivial to `curl` by hand while debugging.
+`packages/agents/src/computer-protocol.ts` documents the full DTO shapes
+and keeps a WebSocket-shaped envelope type in reserve for a future
+push-based transport.
+
+**Command types** (`packages/shared`'s `COMPUTER_COMMAND_TYPES`):
+`SYSTEM_INFO`, `OPEN_APPLICATION`, `OPEN_URL`, `SCREENSHOT`,
+`LIST_DIRECTORY`, `READ_FILE`, `WRITE_FILE`, `CREATE_DIRECTORY`,
+`RUN_COMMAND`.
+
+**Two independent policy checks, not one.** `packages/security/src/computer-policy.ts`
+(`classifyAppOpen`, `classifyShellCommand`, `isSafeUrl`, `isSensitivePath`)
+is imported by *both* sides:
+1. Server-side, in `ComputerAgent.execute()`, before a command is even
+   queued — decides LOW/MEDIUM/HIGH (→ auto-run or ask for approval) or an
+   outright `BLOCKED` refusal (unknown app, unsafe URL scheme, blocked
+   shell pattern, sensitive file path) that never reaches the approval
+   flow at all, because there's nothing to approve for "no".
+2. Daemon-side, in each executor, right before it actually runs — the
+   daemon never trusts "the server already checked". A daemon-side refusal
+   comes back as command state `REJECTED` (distinct from `FAILED`, which
+   means a genuine execution error like "command not found" or "no
+   display attached").
+
+**Risk defaults:** opening an allow-listed app, opening an http(s) URL,
+screenshots, and file ops inside the sandboxed workspace are all
+`LOW_RISK` (auto-execute — see `risk.ts`). `RUN_COMMAND`'s risk is computed
+per-command from `classifyShellCommand` (`pwd`/`git status`/`npm test` →
+LOW; `npm install`/`git pull`/`npm run dev` → MEDIUM; anything
+unrecognized → HIGH, fail-closed; `rm -rf /`, `sudo`, keychain access,
+`curl | sh`, etc. → BLOCKED, refused outright).
+
+**Application allowlist** (`DEFAULT_APP_ALLOWLIST` in computer-policy.ts):
+Safari, Terminal, Visual Studio Code, Finder, Notes, Calculator, Google
+Chrome, Firefox — matched by name/alias, case-insensitively. Anything not
+on this list is refused, never launched.
+
+**Sandbox:** file commands are confined to `COMPUTER_AGENT_WORKSPACE`
+(default `~/JARVIS/workspace`) via the same `WorkspaceSandbox` the File/
+Developer Agents use, *plus* an extra `isSensitivePath` check that refuses
+`.env`, `.ssh/`, `.aws/`, `*.pem`, `*.key`, `id_rsa*`, `credentials.json`,
+etc. even when they're technically inside the sandbox.
+
+**Screenshots** are captured to a temp file and the file is deleted
+immediately after being read into memory and base64-encoded into the
+result — zero on-disk retention, not "for a while."
+
+**System info** never sends the raw hostname (often personally
+identifying, e.g. "Johns-MacBook-Pro.local") — only a truncated SHA-256
+hash of it.
+
+**Device identity:** the daemon generates a random UUID once and persists
+it at `~/.jarvis/device.json`, so restarting it re-registers as the *same*
+device instead of creating a new row every time.
+
+**Natural language:** `packages/core/src/tool-intent.ts` maps free text to
+`{agentType, tool, input}` generically (regex-based when no AI key is
+configured, LLM-based JSON extraction when one is) — see "Natural language
+→ tool calls" below. It is deliberately scoped to the safe, unambiguous
+intents (open app, open URL, screenshot, list/create directory).
+`RUN_COMMAND` is never inferred from natural language — turning "roda o
+projeto" into an actual shell command requires knowing what "the project"
+even is, which JARVIS doesn't have reliable context for yet. That's a
+documented gap, not a hidden one: ask more specifically (Computer page →
+Run Command) or give the exact command in your message once an AI
+provider is configured.
+
+**How to run it:** see SETUP.md. Short version: `cd apps/computer-agent`,
+`cp .env.example .env`, fill in `COMPUTER_AGENT_TOKEN` (same value as the
+server's), `pnpm dev`.
+
+**Platform support:** macOS is the primary target (`open -a`,
+`open <url>`, `screencapture`). Linux equivalents (`xdg-open`, `scrot`/
+`import`/`gnome-screenshot`, `code`/`firefox`/etc. binaries) exist too —
+mainly so this daemon is actually testable in a Linux dev environment —
+and are real, not stubs, but weren't verified against a real display
+(this project was built in a headless container). Windows is not
+implemented; every executor throws a clear "not implemented for this
+platform" error rather than silently no-op'ing.
+
+### Autostart (manual only — nothing is installed automatically)
+
+JARVIS never installs a persistent/startup service on its own — per the
+explicit "não instalar serviços persistentes de forma silenciosa"
+requirement, this is opt-in and manual. If you want `jarvis-computer`
+running automatically when you log into your Mac, use a `launchd` user
+agent:
+
+1. Build the daemon: `pnpm --filter @jarvis/computer-agent build`.
+2. Create `~/Library/LaunchAgents/com.jarvis.computer-agent.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.jarvis.computer-agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/node</string>
+    <string>/absolute/path/to/jarvis/apps/computer-agent/dist/index.js</string>
+  </array>
+  <key>WorkingDirectory</key><string>/absolute/path/to/jarvis/apps/computer-agent</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/jarvis-computer-agent.log</string>
+  <key>StandardErrorPath</key><string>/tmp/jarvis-computer-agent.log</string>
+</dict>
+</plist>
+```
+
+3. Make sure `apps/computer-agent/.env` is filled in (launchd doesn't load
+   your shell profile — the daemon reads `.env` from its own directory).
+4. Load it: `launchctl load ~/Library/LaunchAgents/com.jarvis.computer-agent.plist`.
+5. Unload/remove it the same way you'd remove any launch agent
+   (`launchctl unload ...` then delete the plist) — nothing here hides
+   itself from Activity Monitor, `launchctl list`, or the Login Items
+   settings pane.
+
+### Natural language → tool calls
+
+`packages/core/src/tool-intent.ts` is intentionally generic — there is no
+`if (message.includes("safari"))` anywhere in this codebase. The parser
+produces a `{agentType, tool, input}` shape from a fixed small set of
+intent patterns, and the *only* thing that decides whether the resulting
+action is allowed to run is the normal security layer (`enforceAction` +
+computer-policy) — exactly the same path a command typed into the
+Computer page's "Run Command" box goes through. Adding a new spoken intent
+means adding one more pattern (or extending the LLM prompt's tool list),
+never a new bespoke code path.
 
 ## Email Agent — **real, needs OAuth**
 

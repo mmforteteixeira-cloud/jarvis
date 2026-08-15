@@ -58,9 +58,14 @@ Each package is a separable concern with a narrow public surface
 - `voice` is intentionally standalone (only depends on `shared`) because
   half of it (`browser-voice.ts`) runs in the browser, not Node.
 
-`apps/web` and `apps/worker` are the only two things that get deployed.
-Both are thin: they wire the packages together and expose them (via HTTP
-routes, or via a poll loop) — no business logic lives in either app.
+`apps/web`, `apps/worker`, and `apps/computer-agent` are the things that
+get deployed. All three are thin: they wire the packages together and
+expose them (via HTTP routes, a poll loop, or — for the Computer Agent —
+a daemon that polls a remote queue and executes locally) — no business
+logic lives in any of them. `apps/computer-agent` deliberately does *not*
+depend on `@jarvis/db` (it never touches the database directly, only HTTP)
+so it stays lightweight and would work unmodified even if the JARVIS
+server ran on a different machine.
 
 ## Database
 
@@ -126,6 +131,34 @@ zero external calls when no key is configured. `getAIProvider()` picks
 whichever is configured; the Planner, JARVIS Core's chat path, and the
 Content Agent all go through it, so adding a fourth provider (or changing
 which one is default) is a one-file change.
+
+## Computer Agent: a fourth deployable, on purpose
+
+Every other agent runs in-process with the web server or the worker.
+Computer Agent is different by necessity — it has to run *on the user's
+own machine* to actually open apps or take screenshots there, which might
+not be the same machine the JARVIS server runs on. That's why it's a
+separate app (`apps/computer-agent`, binary `jarvis-computer`) speaking
+plain HTTP back to the server, authenticated with a shared secret
+(`COMPUTER_AGENT_TOKEN`), rather than a class the Task Engine calls
+directly like the other six agents.
+
+```
+JARVIS CORE → ComputerAgent.execute() → computer_commands table (PENDING)
+                                              │
+                            jarvis-computer daemon polls, claims, executes
+                                              │
+                              POST result → computer_commands table (COMPLETED/FAILED/REJECTED)
+                                              │
+                    ComputerAgent.execute() polls the same row until terminal, returns it
+```
+
+`ComputerAgent.execute()` still returns synchronously to the Task Engine
+(bounded poll, default 20s) — from the Task Engine's point of view, the
+Computer Agent behaves exactly like any other agent; the fact that its
+actual execution happened in a different OS process, possibly seconds
+later, is invisible above that boundary. See AGENTS.md and SECURITY.md for
+the full command protocol and policy.
 
 ## The Task Engine's execution rule
 

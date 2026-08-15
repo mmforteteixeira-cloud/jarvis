@@ -105,7 +105,12 @@ export class TaskEngine {
     const start = Date.now();
 
     try {
-      const result = await agent.execute({ taskId: id, projectId: task.projectId, input: task.input });
+      const result = await agent.execute({
+        taskId: id,
+        projectId: task.projectId,
+        userId: this.options.userId,
+        input: task.input,
+      });
       const durationMs = Date.now() - start;
 
       if (result.requiresApproval) {

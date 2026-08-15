@@ -20,6 +20,14 @@ export const ACTION_RISK_CATALOG: Record<string, RiskLevel> = {
   "browser.screenshot": "LOW_RISK",
   "memory.read": "LOW_RISK",
   "content.draft": "LOW_RISK",
+  "computer.system_info": "LOW_RISK",
+  "computer.open_app": "LOW_RISK", // only ever reached for allow-listed apps — see computer-policy.ts
+  "computer.open_url": "LOW_RISK",
+  "computer.screenshot": "LOW_RISK",
+  "computer.list_directory": "LOW_RISK",
+  "computer.read_file": "LOW_RISK",
+  "computer.write_file": "LOW_RISK", // sandboxed to the Computer Agent workspace
+  "computer.create_directory": "LOW_RISK",
 
   // MEDIUM_RISK — sends data out, changes config, publishes
   "email.send": "MEDIUM_RISK",
@@ -28,7 +36,6 @@ export const ACTION_RISK_CATALOG: Record<string, RiskLevel> = {
   "content.publish": "MEDIUM_RISK",
   "settings.modify": "MEDIUM_RISK",
   "shell.exec.general": "MEDIUM_RISK",
-  "computer.open_app": "MEDIUM_RISK",
   "computer.control": "MEDIUM_RISK",
 
   // HIGH_RISK — destructive or irreversible

@@ -37,7 +37,8 @@ At minimum, consider setting:
 
 ## Run
 
-Two processes, in two terminals:
+Two processes, in two terminals, is enough for the full assistant minus
+computer control:
 
 ```bash
 pnpm dev          # web app — http://localhost:3000
@@ -45,7 +46,7 @@ pnpm dev:worker   # background worker (task scheduler, retries, heartbeat)
 ```
 
 Both commands run `pnpm build:packages` first automatically, so the first
-run compiles all 9 workspace packages (a few seconds) before starting.
+run compiles all workspace packages (a few seconds) before starting.
 
 The web app alone is enough to use JARVIS interactively (chat, create
 tasks, run agents manually from the dashboard). The worker is what makes
@@ -56,12 +57,50 @@ The SQLite database is created automatically on first run at
 `./data/jarvis.db` (relative to the repo root, regardless of which app
 opens it first).
 
+### Computer Agent daemon (optional — controls this machine)
+
+A third, separate process, on whichever machine you want JARVIS to
+actually control:
+
+```bash
+cd apps/computer-agent
+cp .env.example .env
+```
+
+Edit `apps/computer-agent/.env`:
+- `COMPUTER_AGENT_TOKEN` — generate with `openssl rand -hex 32`, and put
+  the **same value** in the root `.env`'s `COMPUTER_AGENT_TOKEN`. This is
+  the shared secret that authenticates the daemon to the server; without
+  it matching on both sides, every request is refused.
+- `JARVIS_SERVER_URL` — defaults to `http://localhost:3000`; change it if
+  the web app runs elsewhere.
+- `COMPUTER_AGENT_ENABLED=true` — the daemon refuses to start otherwise
+  (an accidental `pnpm dev` in this directory shouldn't silently start a
+  system-control process).
+
+Then:
+
+```bash
+pnpm dev          # from apps/computer-agent — runs via tsx, restarts on save
+```
+
+The dashboard's **Computer** page (`/computer`) flips to `● ONLINE` within
+one heartbeat interval (~15s, usually faster) once it's running, and you
+can open apps, take screenshots, and run sandboxed commands from there or
+by asking JARVIS in chat ("abre o Safari"). Stop it with Ctrl+C — it
+announces itself offline to the server before exiting, so the dashboard
+updates immediately instead of waiting for the staleness timeout.
+
+To install it permanently (start on login), see the "Autostart" section
+of AGENTS.md — JARVIS does not install any startup service on its own.
+
 ## Build for production
 
 ```bash
-pnpm build          # compiles all packages, then apps/web, then apps/worker
+pnpm build          # compiles all packages, then web, worker, computer-agent
 pnpm --filter @jarvis/web start     # serve the built web app
 pnpm start:worker                   # run the built worker
+pnpm start:computer-agent           # run the built daemon
 ```
 
 ## Test

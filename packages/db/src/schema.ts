@@ -187,15 +187,47 @@ export const activityLogs = sqliteTable(
   }),
 );
 
-export const devices = sqliteTable("devices", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").notNull(),
-  name: text("name").notNull(),
-  platform: text("platform").notNull(),
-  status: text("status").notNull().default("PENDING_PAIRING"),
-  lastSeenAt: text("last_seen_at"),
-  createdAt: text("created_at").notNull(),
-});
+export const devices = sqliteTable(
+  "devices",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    externalId: text("external_id").notNull().default(""),
+    name: text("name").notNull(),
+    platform: text("platform").notNull(),
+    architecture: text("architecture").notNull().default(""),
+    agentVersion: text("agent_version").notNull().default(""),
+    status: text("status").notNull().default("PENDING_PAIRING"),
+    lastSeenAt: text("last_seen_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => ({
+    externalIdIdx: index("devices_external_id_idx").on(t.externalId),
+  }),
+);
+
+export const computerCommands = sqliteTable(
+  "computer_commands",
+  {
+    id: text("id").primaryKey(),
+    deviceId: text("device_id").notNull(),
+    taskId: text("task_id"),
+    type: text("type").notNull(),
+    payload: text("payload", { mode: "json" }).$type<Record<string, unknown>>().notNull().default({}),
+    riskLevel: text("risk_level").notNull(),
+    state: text("state").notNull().default("PENDING"),
+    result: text("result", { mode: "json" }).$type<unknown>(),
+    error: text("error"),
+    createdAt: text("created_at").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    startedAt: text("started_at"),
+    completedAt: text("completed_at"),
+  },
+  (t) => ({
+    deviceStateIdx: index("computer_commands_device_state_idx").on(t.deviceId, t.state),
+    taskIdx: index("computer_commands_task_idx").on(t.taskId),
+  }),
+);
 
 export const notifications = sqliteTable(
   "notifications",

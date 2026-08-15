@@ -3,6 +3,11 @@ import type { AgentDescriptor, AgentStatus, AgentType, PermissionRequest, RiskLe
 export interface AgentContext {
   taskId: string;
   projectId: string | null;
+  /** The owning user, supplied by the Task Engine — agents that need to
+   * scope a lookup to "this user's stuff" (e.g. Computer Agent's paired
+   * devices) use this instead of requiring callers to pass userId inside
+   * their own input shape. */
+  userId: string;
   input: unknown;
 }
 

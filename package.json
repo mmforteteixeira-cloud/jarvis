@@ -10,9 +10,11 @@
   "scripts": {
     "dev": "pnpm build:packages && pnpm --filter @jarvis/web dev",
     "dev:worker": "pnpm build:packages && pnpm --filter @jarvis/worker dev",
-    "build": "pnpm -r --filter=./packages/** build && pnpm --filter @jarvis/web build && pnpm --filter @jarvis/worker build",
+    "dev:computer-agent": "pnpm build:packages && pnpm --filter @jarvis/computer-agent dev",
+    "build": "pnpm -r --filter=./packages/** build && pnpm --filter @jarvis/web build && pnpm --filter @jarvis/worker build && pnpm --filter @jarvis/computer-agent build",
     "build:packages": "pnpm -r --filter=./packages/** build",
     "start:worker": "pnpm --filter @jarvis/worker start",
+    "start:computer-agent": "pnpm --filter @jarvis/computer-agent start",
     "typecheck": "pnpm build:packages && pnpm -r run typecheck",
     "test": "vitest run",
     "test:watch": "vitest",

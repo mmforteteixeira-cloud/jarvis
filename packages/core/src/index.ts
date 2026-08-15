@@ -5,3 +5,4 @@ export * from "./task-engine.js";
 export * from "./project-system.js";
 export * from "./jarvis-core.js";
 export * from "./integrations.js";
+export * from "./tool-intent.js";

@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/projects", label: "Projects", icon: "▣" },
   { href: "/tasks", label: "Tasks", icon: "☰" },
   { href: "/agents", label: "Agents", icon: "◈" },
+  { href: "/computer", label: "Computer", icon: "▢" },
   { href: "/activity", label: "Activity", icon: "≋" },
   { href: "/memory", label: "Memory", icon: "◐" },
   { href: "/integrations", label: "Integrations", icon: "⬡" },
@@ -50,7 +51,7 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-border px-4 py-4 text-[10px] text-ink-faint font-mono">
-        <p>JARVIS v0.1.0</p>
+        <p>JARVIS v0.2.0</p>
         <p>local · zero-cost mode</p>
       </div>
     </aside>

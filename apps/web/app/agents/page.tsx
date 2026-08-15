@@ -218,7 +218,11 @@ function ComputerQuickAction() {
   const { busy, result, error, trigger } = useQuickAction(() => api.post("/api/computer", { name: "My Mac", platform: "darwin" }));
   return (
     <QuickActionShell onSubmit={trigger} busy={busy} result={result} error={error}>
-      <span className="flex-1 text-[11px] text-ink-faint">Register a pairing request (no daemon exists yet — will show NOT_CONNECTED).</span>
+      <span className="flex-1 text-[11px] text-ink-faint">
+        Manual device pre-registration (legacy). Real pairing happens automatically when you start the daemon —
+        see the <a href="/computer" className="text-accent underline underline-offset-2">Computer</a> page for open
+        app / URL / screenshot / file / command actions.
+      </span>
     </QuickActionShell>
   );
 }

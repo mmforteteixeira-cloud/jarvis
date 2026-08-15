@@ -30,11 +30,11 @@ export async function getJarvis() {
 
   const user = await getOrCreateDefaultUser(process.env.JARVIS_OWNER_EMAIL ?? "owner@local", "Owner");
   const registry = getAgentRegistry(WORKSPACE_ROOT);
-  await registry.syncDescriptors();
+  await registry.syncDescriptors(user.id);
 
   const taskEngine = new TaskEngine({ workspaceRoot: WORKSPACE_ROOT, userId: user.id });
   const orchestrator = new Orchestrator(taskEngine);
-  const jarvisCore = new JarvisCore(orchestrator);
+  const jarvisCore = new JarvisCore(orchestrator, taskEngine);
   const projects = new ProjectSystem();
 
   bootstrapped = { user, registry, taskEngine, orchestrator, jarvisCore, projects };

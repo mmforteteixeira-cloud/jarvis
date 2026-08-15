@@ -24,8 +24,15 @@ simulated result as a real one. If something isn't wired up yet, it says so.
   (sandboxed filesystem, shell, and a real headless-Chromium browser).
   Research works once you add a search API key. Email (Gmail OAuth) and
   Content (LLM-generated scripts/hashtags) are real but gated behind
-  credentials/keys. Computer Agent is architecture + protocol only — no
-  device has ever been connected, and it says so.
+  credentials/keys. **Computer Agent (v0.2) is real**: a local daemon
+  (`apps/computer-agent`) opens allow-listed apps, opens URLs, takes
+  screenshots, and does sandboxed file/command operations on whichever
+  machine you run it on — with no device connected it honestly reports
+  offline instead of pretending.
+- **Natural language → tool calls** — "abre o Safari" / "cria uma pasta
+  chamada Teste" resolve through one generic intent parser
+  (`packages/core/src/tool-intent.ts`), not per-phrase special cases, and
+  go through the exact same risk/approval flow as everything else.
 - **Security layer** — every non-trivial action is risk-classified
   (LOW/MEDIUM/HIGH) and MEDIUM/HIGH actions block on an explicit approval
   you grant from the dashboard.
@@ -54,6 +61,17 @@ pnpm dev                    # web app on http://localhost:3000
 pnpm dev:worker             # background worker, in a second terminal
 ```
 
+To also control this machine (open apps, take screenshots, run commands),
+in a third terminal:
+
+```bash
+cd apps/computer-agent
+cp .env.example .env        # set COMPUTER_AGENT_TOKEN — same value in both .env files
+pnpm dev
+```
+
+The dashboard's Computer page flips to `● ONLINE` once it connects.
+
 No API keys are required to run JARVIS. Without `AI_API_KEY`, chat and
 planning run in a clearly-labeled DEMO mode instead of pretending to reason.
 
@@ -80,14 +98,17 @@ packages/
   core/      JARVIS Core, Orchestrator, Planner, Task Engine, Project System
   voice/     STT/TTS interfaces + browser + ElevenLabs implementations
 apps/
-  web/       Next.js dashboard + API routes
-  worker/    background worker (scheduler, retry, heartbeat)
+  web/             Next.js dashboard + API routes
+  worker/          background worker (scheduler, retry, heartbeat)
+  computer-agent/  local daemon (jarvis-computer) — real OS control
 ```
 
 ## Status
 
-Built and self-audited in one session: all packages typecheck, the web app
-builds and serves all 25 routes, 39 automated tests pass, and the full
-chat → plan → task → agent → approval loop was exercised end-to-end against
-a real running server. See the final summary in the project handoff notes
-for what's real, what needs a key, and what's next.
+Built and self-audited across two sessions: all packages typecheck, the
+web app builds and serves every route, the automated test suite passes,
+and the full chat → plan → task → agent → approval loop — plus the
+Computer Agent's daemon → queue → execute → policy → dashboard loop — was
+exercised end-to-end against a real running server and a real daemon
+process. See the final summary in the project handoff notes for what's
+real, what needs a key, and what's next.

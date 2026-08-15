@@ -1,5 +1,5 @@
-import { upsertAgentDescriptor } from "@jarvis/db";
-import type { AgentType } from "@jarvis/shared";
+import { upsertAgentDescriptor, listDevices, reapStaleDevices } from "@jarvis/db";
+import type { AgentDescriptor, AgentType } from "@jarvis/shared";
 import type { Agent } from "./base.js";
 import { FileAgent } from "./file-agent.js";
 import { DeveloperAgent } from "./developer-agent.js";
@@ -39,9 +39,28 @@ export class AgentRegistry {
   }
 
   /** Persists current descriptors (status/capabilities) to the DB so the UI
-   * can render agent state without re-instantiating every agent. */
-  async syncDescriptors(): Promise<void> {
-    await Promise.all(this.all().map((agent) => upsertAgentDescriptor(agent.descriptor())));
+   * can render agent state without re-instantiating every agent. When
+   * userId is supplied, the Computer Agent's descriptor is overridden with
+   * its *real* live device status — "não quero uma interface falsa": the
+   * generic Agents grid must flip to connected the moment a daemon is
+   * actually online, not show a permanently-static placeholder. */
+  async syncDescriptors(userId?: string): Promise<void> {
+    const descriptors = this.all().map((agent) => agent.descriptor());
+
+    if (userId) {
+      await reapStaleDevices(userId);
+      const devices = await listDevices(userId);
+      const online = devices.some((d) => d.status === "ONLINE" || d.status === "BUSY");
+      const computer = descriptors.find((d) => d.type === "COMPUTER");
+      if (computer) {
+        computer.status = online ? "IDLE" : "NOT_CONNECTED";
+        computer.capabilities = online
+          ? ["open applications", "open URLs", "screenshots", "file operations (sandboxed)", "run allow-listed commands"]
+          : [];
+      }
+    }
+
+    await Promise.all(descriptors.map((descriptor: AgentDescriptor) => upsertAgentDescriptor(descriptor)));
   }
 }
 

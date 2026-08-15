@@ -68,16 +68,50 @@ reject completely benign text like "no AI_API_KEY configured" — a real
 false positive caught during development and fixed by requiring a
 `key: value`-shaped match, not just the keyword).
 
-## Computer Agent
+## Computer Agent (v0.2 — real)
 
-No device has ever connected — see AGENTS.md. When one does, the protocol
-(`packages/agents/src/computer-protocol.ts`) requires a pre-shared secret
-(`COMPUTER_AGENT_TOKEN`) for pairing, and every command the daemon is asked
-to run still carries a risk level and goes through the same approval flow
-— the local daemon is a remote *executor*, not a bypass of JARVIS's
-security model. It also gets to refuse: the daemon is expected to enforce
-its own local allow-lists (which apps, which directories) rather than
-blindly trusting whatever JARVIS Core sends.
+Full detail in AGENTS.md; the security-relevant summary:
+
+- **Authentication:** every `/api/computer/device/*` route requires
+  `Authorization: Bearer <COMPUTER_AGENT_TOKEN>` matching the server's env
+  var exactly (`apps/web/lib/server/computer-auth.ts`). If the token isn't
+  configured server-side, the entire daemon-facing surface refuses with
+  `IntegrationNotConfiguredError` — there is no unauthenticated pairing
+  path, ever.
+- **Double policy check.** Risk is classified twice, independently, by the
+  same shared code (`packages/security/src/computer-policy.ts`): once
+  server-side before a command is queued (decides auto-run vs.
+  approval-required vs. outright `BLOCKED`), and again daemon-side right
+  before execution. The daemon never trusts "the server already checked".
+  A daemon-side refusal is reported as `REJECTED`, distinct from `FAILED`
+  (a genuine execution error).
+- **Outright refusals bypass the approval flow entirely** — an unknown
+  application, an unsafe URL scheme, a blocked shell pattern, or a
+  sensitive file path is a hard "no", not a "please confirm". There's
+  nothing to approve for an answer that's always no.
+- **Application allowlist** — only 8 named apps can ever be opened
+  (`DEFAULT_APP_ALLOWLIST`); nothing else, ever, regardless of approval.
+- **Shell command classification** (`classifyShellCommand`) is
+  pattern-based and fails closed: unrecognized commands are `HIGH_RISK`
+  (approval required), and an explicit blocklist (`rm -rf /`, `sudo`,
+  macOS Keychain access, `curl | sh`, fork bombs, `/etc/shadow`, SSH
+  private keys, `shutdown`/`reboot`, `diskutil erase`, ...) is refused
+  outright, at both the server and the daemon.
+- **Sensitive paths are blocked even inside the sandbox** — `.env`,
+  `.ssh/`, `.aws/`, `.gnupg/`, `*.pem`, `*.key`, `id_rsa*`,
+  `credentials.json`, `.netrc`, `.git-credentials` all refuse
+  read/write even when the path itself resolves inside
+  `COMPUTER_AGENT_WORKSPACE`.
+- **Stale-connection reaping:** a device with no heartbeat in 45 seconds
+  (3× the default heartbeat interval) is treated as `OFFLINE` on every
+  read, not trusted from a stale DB row — "não quero uma interface
+  falsa" applies to disconnection too, not just connection.
+- **No personal data collected.** `SYSTEM_INFO` sends a hashed hostname,
+  never the raw one; screenshots are read into memory and their temp file
+  deleted immediately after, never retained.
+- **Device identity** is a random UUID persisted locally
+  (`~/.jarvis/device.json`) — no hardware fingerprinting, no MAC address,
+  no serial number.
 
 ## Error handling as a security property
 

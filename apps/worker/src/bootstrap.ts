@@ -11,7 +11,7 @@ export async function bootstrap() {
 
   const user = await getOrCreateDefaultUser(process.env.JARVIS_OWNER_EMAIL ?? "owner@local", "Owner");
   const registry = getAgentRegistry(WORKSPACE_ROOT);
-  await registry.syncDescriptors();
+  await registry.syncDescriptors(user.id);
 
   const taskEngine = new TaskEngine({ workspaceRoot: WORKSPACE_ROOT, userId: user.id });
   const orchestrator = new Orchestrator(taskEngine);

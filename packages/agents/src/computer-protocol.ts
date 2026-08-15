@@ -1,17 +1,30 @@
+import type { ComputerCommandType } from "@jarvis/shared";
+
 /**
- * Computer Agent communication protocol (architecture only — no device is
- * connected yet). This is the contract a future local daemon, installed on
- * the user's Mac, would speak over a WebSocket back to JARVIS Core.
+ * Computer Agent communication protocol — v0.2, now actually implemented
+ * end to end (see `apps/computer-agent` for the daemon and
+ * `apps/web/app/api/computer/device/*` for the server side).
  *
- * Design goals:
+ * Transport: plain HTTP polling over localhost (or LAN/HTTPS in a future
+ * remote deployment), not WebSocket. The architecture diagram in the
+ * product spec describes a "COMMAND QUEUE" the daemon pulls from — a poll
+ * loop against a REST API implements that queue directly, with far less
+ * moving-parts risk than a bidirectional socket, and is trivial to smoke
+ * test with `curl`. `ComputerAgentEnvelope` below is kept as a
+ * WebSocket-shaped type so a future push-based transport is a drop-in
+ * replacement, not a redesign — but nothing implements it today.
+ *
+ * Design goals (unchanged from v0.1's placeholder):
  *  - The daemon authenticates with a pre-shared secret (COMPUTER_AGENT_TOKEN),
  *    never with the user's OS credentials.
- *  - Every command the daemon is asked to run passes back through the same
- *    LOW/MEDIUM/HIGH risk approval flow as any other agent — the daemon is a
- *    remote executor, not a bypass.
- *  - The daemon is the one deciding what it's willing to do locally
- *    (allow-list of app names, workspace directories, etc.) — JARVIS Core
- *    cannot force it to do something it wasn't configured to allow.
+ *  - Every command passes through the same LOW/MEDIUM/HIGH risk approval
+ *    flow as any other agent (@jarvis/security's enforceAction) — the
+ *    daemon is a remote executor, not a bypass.
+ *  - The daemon independently re-validates every command against
+ *    @jarvis/security's computer-policy (allowlist, sandbox, blocked shell
+ *    patterns) before running it, regardless of what risk level the server
+ *    attached — JARVIS Core cannot force it to do something it wasn't
+ *    configured to allow.
  */
 
 export type ComputerAgentMessageType =
@@ -20,10 +33,10 @@ export type ComputerAgentMessageType =
   | "HEARTBEAT"
   | "COMMAND_REQUEST"
   | "COMMAND_RESULT"
-  | "SCREENSHOT_REQUEST"
-  | "SCREENSHOT_RESULT"
   | "ERROR";
 
+/** Reserved for a future WebSocket/push transport — not used by the
+ * current HTTP-polling implementation. */
 export interface ComputerAgentEnvelope<T = unknown> {
   type: ComputerAgentMessageType;
   deviceId: string;
@@ -32,28 +45,98 @@ export interface ComputerAgentEnvelope<T = unknown> {
   payload: T;
 }
 
-export interface PairRequestPayload {
-  token: string; // must equal COMPUTER_AGENT_TOKEN
-  deviceName: string;
+// ---------------------------------------------------------------------------
+// HTTP DTOs — what the daemon actually sends/receives today
+// ---------------------------------------------------------------------------
+
+export interface DeviceRegisterRequest {
+  externalId: string;
+  name: string;
   platform: "darwin" | "win32" | "linux";
+  architecture: string;
+  agentVersion: string;
 }
 
-export type ComputerCommand =
-  | { kind: "open_app"; appName: string }
-  | { kind: "run_shell"; command: string; args: string[] }
-  | { kind: "read_file"; path: string }
-  | { kind: "write_file"; path: string; content: string }
-  | { kind: "screenshot" }
-  | { kind: "browser_control"; action: string; params: Record<string, unknown> };
-
-export interface CommandRequestPayload {
-  command: ComputerCommand;
-  riskLevel: "LOW_RISK" | "MEDIUM_RISK" | "HIGH_RISK";
-  approvedPermissionId?: string;
+export interface DeviceRegisterResponse {
+  deviceId: string;
+  status: string;
 }
 
-export interface CommandResultPayload {
-  success: boolean;
-  output?: unknown;
+export interface DeviceHeartbeatRequest {
+  externalId: string;
+  status: "ONLINE" | "BUSY";
+  agentVersion: string;
+}
+
+export interface CommandResultRequest {
+  state: "COMPLETED" | "FAILED" | "REJECTED";
+  result?: unknown;
   error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Command payloads, one per ComputerCommandType (@jarvis/shared)
+// ---------------------------------------------------------------------------
+
+export interface SystemInfoPayload {}
+
+export interface OpenApplicationPayload {
+  application: string;
+}
+
+export interface OpenUrlPayload {
+  url: string;
+}
+
+export interface ScreenshotPayload {}
+
+export interface ListDirectoryPayload {
+  path?: string;
+}
+
+export interface ReadFilePayload {
+  path: string;
+}
+
+export interface WriteFilePayload {
+  path: string;
+  content: string;
+}
+
+export interface CreateDirectoryPayload {
+  path: string;
+}
+
+export interface RunCommandPayload {
+  command: string;
+  args?: string[];
+  cwd?: string;
+}
+
+export type ComputerCommandPayloadFor<T extends ComputerCommandType> = T extends "SYSTEM_INFO"
+  ? SystemInfoPayload
+  : T extends "OPEN_APPLICATION"
+    ? OpenApplicationPayload
+    : T extends "OPEN_URL"
+      ? OpenUrlPayload
+      : T extends "SCREENSHOT"
+        ? ScreenshotPayload
+        : T extends "LIST_DIRECTORY"
+          ? ListDirectoryPayload
+          : T extends "READ_FILE"
+            ? ReadFilePayload
+            : T extends "WRITE_FILE"
+              ? WriteFilePayload
+              : T extends "CREATE_DIRECTORY"
+                ? CreateDirectoryPayload
+                : T extends "RUN_COMMAND"
+                  ? RunCommandPayload
+                  : never;
+
+export interface SystemInfoResult {
+  os: string;
+  release: string;
+  architecture: string;
+  hostnameHash: string; // hashed, not the raw hostname — see daemon/src/executors/system-info.ts
+  agentVersion: string;
 }

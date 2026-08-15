@@ -6,6 +6,7 @@ import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3"
 import { createLogger } from "@jarvis/shared";
 import * as schema from "./schema.js";
 import { INIT_SQL } from "./migrations/0000_init.js";
+import { applyComputerAgentMigrations } from "./migrations/0001_computer_agent.js";
 
 const logger = createLogger("db");
 
@@ -82,6 +83,7 @@ export function getDb(): BetterSQLite3Database<typeof schema> {
 
 function bootstrap(db: Database.Database) {
   db.exec(INIT_SQL);
+  applyComputerAgentMigrations(db);
 }
 
 /** Closes the underlying SQLite connection. Mainly useful for tests. */

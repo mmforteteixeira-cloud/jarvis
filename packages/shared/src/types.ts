@@ -263,17 +263,72 @@ export interface IntegrationDescriptor {
 // Devices (Computer Agent)
 // ---------------------------------------------------------------------------
 
-export const DEVICE_STATUSES = ["ONLINE", "OFFLINE", "PENDING_PAIRING"] as const;
+export const DEVICE_STATUSES = ["ONLINE", "OFFLINE", "CONNECTING", "ERROR", "BUSY", "PENDING_PAIRING"] as const;
 export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
 
 export interface Device {
   id: string;
   userId: string;
+  /** Stable identifier generated and persisted by the daemon itself
+   * (~/.jarvis/device.json), sent on every register/heartbeat call — lets
+   * the daemon re-register idempotently across restarts instead of
+   * creating a duplicate row every time it starts up. Empty string for
+   * devices registered the old (manual, v0.1) way. */
+  externalId: string;
   name: string;
+  /** Operating system identifier, e.g. "darwin" — kept as "platform" since
+   * that's the field name v0.1's manual pairing flow already uses. */
   platform: string;
+  architecture: string;
+  agentVersion: string;
   status: DeviceStatus;
   lastSeenAt: string | null;
   createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Computer Agent — command protocol (packages/agents/src/computer-protocol.ts
+// is the authoritative documentation of the wire format; these are the
+// persisted-record shapes shared between the server and the daemon client).
+// ---------------------------------------------------------------------------
+
+export const COMPUTER_COMMAND_TYPES = [
+  "SYSTEM_INFO",
+  "OPEN_APPLICATION",
+  "OPEN_URL",
+  "SCREENSHOT",
+  "LIST_DIRECTORY",
+  "READ_FILE",
+  "WRITE_FILE",
+  "CREATE_DIRECTORY",
+  "RUN_COMMAND",
+] as const;
+export type ComputerCommandType = (typeof COMPUTER_COMMAND_TYPES)[number];
+
+export const COMPUTER_COMMAND_STATES = [
+  "PENDING",
+  "RUNNING",
+  "COMPLETED",
+  "FAILED",
+  "REJECTED",
+  "EXPIRED",
+] as const;
+export type ComputerCommandState = (typeof COMPUTER_COMMAND_STATES)[number];
+
+export interface ComputerCommandRecord {
+  id: string;
+  deviceId: string;
+  taskId: string | null;
+  type: ComputerCommandType;
+  payload: Record<string, unknown>;
+  riskLevel: RiskLevel;
+  state: ComputerCommandState;
+  result: unknown;
+  error: string | null;
+  createdAt: string;
+  expiresAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
 }
 
 // ---------------------------------------------------------------------------

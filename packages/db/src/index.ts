@@ -14,3 +14,4 @@ export * from "./repositories/content.js";
 export * from "./repositories/devices.js";
 export * from "./repositories/settings.js";
 export * from "./repositories/integrations.js";
+export * from "./repositories/computer-commands.js";

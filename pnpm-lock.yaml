@@ -21,6 +21,25 @@ importers:
         specifier: ^2.1.4
         version: 2.1.9(@types/node@22.20.1)(lightningcss@1.32.0)
 
+  apps/computer-agent:
+    dependencies:
+      '@jarvis/security':
+        specifier: workspace:*
+        version: link:../../packages/security
+      '@jarvis/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.20.1
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.12
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
   apps/web:
     dependencies:
       '@jarvis/agents':

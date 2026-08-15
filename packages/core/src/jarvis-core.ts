@@ -6,9 +6,11 @@ import {
 } from "@jarvis/db";
 import { getAIProvider } from "@jarvis/ai";
 import { saveMemory, buildMemoryContext, pruneShortTermMemory } from "@jarvis/memory";
-import { createLogger, type Conversation, type Message } from "@jarvis/shared";
+import { createLogger, type Conversation, type Message, type Task } from "@jarvis/shared";
 import { JARVIS_SYSTEM_PROMPT } from "./persona.js";
 import { Orchestrator, type OrchestratePlanResult } from "./orchestrator.js";
+import { TaskEngine } from "./task-engine.js";
+import { parseToolIntent, type ToolIntent } from "./tool-intent.js";
 
 const logger = createLogger("core:jarvis");
 
@@ -25,16 +27,22 @@ export interface ChatResponse {
   message: Message;
   aiMode: "REAL" | "DEMO";
   createdPlan?: OrchestratePlanResult;
+  executedTask?: Task;
 }
 
 /**
  * JARVIS Core: the front door. Owns conversation state, pulls in memory
  * context, decides whether a message is a goal that needs a project + plan
- * (routes to the Orchestrator) or a normal exchange (routes to the AI
- * provider), and writes the result back to memory.
+ * (routes to the Orchestrator), a direct tool command (routes to an agent
+ * via the Task Engine — same approval flow as everything else), or a
+ * normal exchange (routes to the AI provider), and writes the result back
+ * to memory.
  */
 export class JarvisCore {
-  constructor(private readonly orchestrator: Orchestrator) {}
+  constructor(
+    private readonly orchestrator: Orchestrator,
+    private readonly taskEngine: TaskEngine,
+  ) {}
 
   private async resolveConversation(userId: string, conversationId?: string): Promise<Conversation> {
     if (conversationId) {
@@ -47,6 +55,20 @@ export class JarvisCore {
   async chat(req: ChatRequest): Promise<ChatResponse> {
     const conversation = await this.resolveConversation(req.userId, req.conversationId);
     await addMessage(conversation.id, "user", req.message);
+
+    const toolIntent = await parseToolIntent(req.message);
+    if (toolIntent) {
+      const created = await this.taskEngine.create({
+        description: toolIntent.description,
+        agentType: toolIntent.agentType,
+        input: { type: toolIntent.tool, payload: toolIntent.input },
+        priority: "MEDIUM",
+      });
+      const executed = await this.taskEngine.execute(created.id);
+      const summary = formatToolExecutionSummary(toolIntent, executed);
+      const assistantMessage = await addMessage(conversation.id, "assistant", summary);
+      return { conversationId: conversation.id, message: assistantMessage, aiMode: "REAL", executedTask: executed };
+    }
 
     if (GOAL_INTENT.test(req.message)) {
       const plan = await this.orchestrator.planGoal({ userId: req.userId, goal: req.message });
@@ -109,4 +131,17 @@ function formatPlanSummary(plan: OrchestratePlanResult): string {
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}...` : text;
+}
+
+function formatToolExecutionSummary(intent: ToolIntent, task: Task): string {
+  switch (task.state) {
+    case "COMPLETED":
+      return `Done — ${intent.description}.`;
+    case "WAITING_APPROVAL":
+      return `${intent.description} needs your approval first — check the notification or the Computer page to approve/deny.`;
+    case "FAILED":
+      return `Couldn't do that: ${task.error ?? "unknown error"}`;
+    default:
+      return `${intent.description} — currently ${task.state}.`;
+  }
 }
