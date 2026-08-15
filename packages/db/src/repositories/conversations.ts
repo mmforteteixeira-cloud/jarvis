@@ -49,3 +49,15 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
     .orderBy(asc(messages.createdAt))
     .all() as Message[];
 }
+
+export async function renameConversation(id: string, title: string): Promise<Conversation | undefined> {
+  const db = getDb();
+  db.update(conversations).set({ title, updatedAt: new Date().toISOString() }).where(eq(conversations.id, id)).run();
+  return getConversation(id);
+}
+
+export async function deleteConversation(id: string): Promise<void> {
+  const db = getDb();
+  db.delete(messages).where(eq(messages.conversationId, id)).run();
+  db.delete(conversations).where(eq(conversations.id, id)).run();
+}

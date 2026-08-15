@@ -1,10 +1,12 @@
 import { ValidationError } from "@jarvis/shared";
 import { getJarvis } from "@/lib/server/init";
 import { ok, withErrorHandling } from "@/lib/server/api";
+import { enforceRateLimit } from "@/lib/server/rate-limit";
 import { listConversations, listMessages } from "@jarvis/db";
 import { ChatRequestSchema } from "@/lib/validation";
 
 export const POST = withErrorHandling(async (request: Request) => {
+  enforceRateLimit(request, "chat", 20, 60_000);
   const body = await request.json().catch(() => null);
   const parsed = ChatRequestSchema.safeParse(body);
   if (!parsed.success) {

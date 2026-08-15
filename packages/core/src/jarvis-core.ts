@@ -1,16 +1,19 @@
 import {
   addMessage,
   createConversation,
+  createReminder,
   getConversation,
   listMessages,
 } from "@jarvis/db";
-import { getAIProvider } from "@jarvis/ai";
+import { getAIProvider, type AIMessage } from "@jarvis/ai";
 import { saveMemory, buildMemoryContext, pruneShortTermMemory } from "@jarvis/memory";
 import { createLogger, type Conversation, type Message, type Task } from "@jarvis/shared";
 import { JARVIS_SYSTEM_PROMPT } from "./persona.js";
 import { Orchestrator, type OrchestratePlanResult } from "./orchestrator.js";
 import { TaskEngine } from "./task-engine.js";
 import { parseToolIntent, type ToolIntent } from "./tool-intent.js";
+import { parseUtilityIntent } from "./utility-intent.js";
+import { parseReminderIntent } from "./reminder-intent.js";
 
 const logger = createLogger("core:jarvis");
 
@@ -53,6 +56,24 @@ export class JarvisCore {
   }
 
   async chat(req: ChatRequest): Promise<ChatResponse> {
+    const prep = await this.prepareChatStream(req);
+    if (isChatResponse(prep)) return prep;
+
+    const ai = getAIProvider();
+    const result = await ai.complete({ system: prep.system, messages: prep.messages });
+    return prep.finalize(result.text, result.mode);
+  }
+
+  /**
+   * Same routing as chat() (tool intents and goal/project intents still
+   * resolve immediately, since neither is meaningfully "streamable" — a
+   * tool call either ran or it didn't), but for the plain-conversation
+   * branch it stops short of calling the AI provider and instead returns
+   * everything a caller needs to stream the completion itself and persist
+   * the result afterward via finalize(). Used by the SSE chat endpoint;
+   * chat() above is just this method run to completion non-streamed.
+   */
+  async prepareChatStream(req: ChatRequest): Promise<ChatResponse | StreamPreparation> {
     const conversation = await this.resolveConversation(req.userId, req.conversationId, req.message);
     await addMessage(conversation.id, "user", req.message);
 
@@ -68,6 +89,24 @@ export class JarvisCore {
       const summary = formatToolExecutionSummary(toolIntent, executed);
       const assistantMessage = await addMessage(conversation.id, "assistant", summary);
       return { conversationId: conversation.id, message: assistantMessage, aiMode: "REAL", executedTask: executed };
+    }
+
+    const reminderIntent = await parseReminderIntent(req.message);
+    if (reminderIntent) {
+      const reminder = await createReminder({
+        userId: req.userId,
+        message: reminderIntent.message,
+        dueAt: reminderIntent.dueAt,
+      });
+      const reply = `Reminder set: "${reminder.message}" for ${formatDueAt(reminder.dueAt)}.`;
+      const assistantMessage = await addMessage(conversation.id, "assistant", reply);
+      return { conversationId: conversation.id, message: assistantMessage, aiMode: "REAL" };
+    }
+
+    const utilityIntent = parseUtilityIntent(req.message);
+    if (utilityIntent) {
+      const assistantMessage = await addMessage(conversation.id, "assistant", utilityIntent.reply);
+      return { conversationId: conversation.id, message: assistantMessage, aiMode: "REAL" };
     }
 
     if (GOAL_INTENT.test(req.message)) {
@@ -91,7 +130,6 @@ export class JarvisCore {
       };
     }
 
-    const ai = getAIProvider();
     const history = await listMessages(conversation.id);
     const memories = await buildMemoryContext(req.userId);
 
@@ -100,23 +138,36 @@ export class JarvisCore {
         ? `\n\nRelevant memory:\n${memories.map((m) => `- (${m.type}) ${m.content}`).join("\n")}`
         : "";
 
-    const result = await ai.complete({
+    return {
+      conversationId: conversation.id,
       system: JARVIS_SYSTEM_PROMPT + memoryBlock,
       messages: history.slice(-20).map((m) => ({ role: m.role === "tool" ? "assistant" : m.role, content: m.content })),
-    });
+      finalize: async (text: string, mode: "REAL" | "DEMO") => {
+        const assistantMessage = await addMessage(conversation.id, "assistant", text);
 
-    const assistantMessage = await addMessage(conversation.id, "assistant", result.text);
+        await saveMemory({
+          userId: req.userId,
+          type: "SHORT_TERM",
+          content: `User said: "${req.message}" — JARVIS replied: "${truncate(text, 200)}"`,
+          importance: 0.3,
+        });
+        await pruneShortTermMemory(req.userId);
 
-    await saveMemory({
-      userId: req.userId,
-      type: "SHORT_TERM",
-      content: `User said: "${req.message}" — JARVIS replied: "${truncate(result.text, 200)}"`,
-      importance: 0.3,
-    });
-    await pruneShortTermMemory(req.userId);
-
-    return { conversationId: conversation.id, message: assistantMessage, aiMode: result.mode };
+        return { conversationId: conversation.id, message: assistantMessage, aiMode: mode };
+      },
+    };
   }
+}
+
+export interface StreamPreparation {
+  conversationId: string;
+  system: string;
+  messages: AIMessage[];
+  finalize: (fullText: string, mode: "REAL" | "DEMO") => Promise<ChatResponse>;
+}
+
+function isChatResponse(value: ChatResponse | StreamPreparation): value is ChatResponse {
+  return "message" in value;
 }
 
 function deriveConversationTitle(firstMessage?: string): string {
@@ -133,6 +184,10 @@ function formatPlanSummary(plan: OrchestratePlanResult): string {
     lines.join("\n") +
     `\n\nNothing has been executed yet — these are queued tasks. Tell me to run one, or open the Tasks panel.`
   );
+}
+
+function formatDueAt(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
 }
 
 function truncate(text: string, max: number): string {

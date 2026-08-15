@@ -28,4 +28,30 @@ export class OpenAIProvider implements AIProvider {
     const text = response.choices[0]?.message?.content ?? "";
     return { text, providerName: this.name, model: this.model, mode: this.mode };
   }
+
+  async completeStream(request: AICompletionRequest, onToken: (delta: string) => void): Promise<AICompletionResult> {
+    const messages = [
+      ...(request.system ? [{ role: "system" as const, content: request.system }] : []),
+      ...request.messages.map((m) => ({ role: m.role, content: m.content })),
+    ];
+
+    const stream = await this.client.chat.completions.create({
+      model: this.model,
+      messages,
+      max_tokens: request.maxTokens ?? 1024,
+      temperature: request.temperature,
+      stream: true,
+    });
+
+    let text = "";
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content ?? "";
+      if (delta) {
+        text += delta;
+        onToken(delta);
+      }
+    }
+
+    return { text, providerName: this.name, model: this.model, mode: this.mode };
+  }
 }

@@ -13,6 +13,9 @@ simulated result as a real one. If something isn't wired up yet, it says so.
 ## What's actually here
 
 - **JARVIS Core** — chat entry point with memory-aware context and persona.
+  Streams responses token-by-token over SSE (`POST /api/chat/stream`), with
+  Markdown rendering, conversation history (rename/delete), and quick
+  commands in the UI.
 - **Orchestrator + Planner** — turns a goal ("Cria uma aplicação de
   currículos") into a project and a real, persisted task breakdown. Uses an
   LLM when `AI_API_KEY`/`OPENAI_API_KEY` is set; falls back to a
@@ -33,6 +36,10 @@ simulated result as a real one. If something isn't wired up yet, it says so.
   chamada Teste" resolve through one generic intent parser
   (`packages/core/src/tool-intent.ts`), not per-phrase special cases, and
   go through the exact same risk/approval flow as everything else.
+  "quanto é 15% de 200" and "que horas são" answer instantly with no AI
+  call needed (`packages/core/src/utility-intent.ts`); "lembra-me amanhã
+  às 10 de..." creates a real reminder the background worker fires as a
+  notification when due (`packages/core/src/reminder-intent.ts`).
 - **Security layer** — every non-trivial action is risk-classified
   (LOW/MEDIUM/HIGH) and MEDIUM/HIGH actions block on an explicit approval
   you grant from the dashboard.
@@ -41,9 +48,12 @@ simulated result as a real one. If something isn't wired up yet, it says so.
 - **Voice** — browser-native STT/TTS (Web Speech API, zero cost) with an
   ElevenLabs adapter ready behind an API key.
 - **Background worker** — a separate long-running process that polls the
-  task queue, retries failures with backoff, and beats a heartbeat.
+  task queue, retries failures with backoff, fires due reminders as
+  notifications, and beats a heartbeat.
 - **Dashboard** — dark, futuristic, own visual identity (not an Iron Man
-  skin). Chat, voice, projects, tasks, agents, activity log, integrations.
+  skin), with an animated central orb reflecting JARVIS's live state
+  (idle/listening/thinking/executing/speaking/success/error). Chat, voice,
+  projects, tasks, reminders, agents, activity log, integrations.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full picture,
 [SETUP.md](./SETUP.md) to run it, [AGENTS.md](./AGENTS.md) /

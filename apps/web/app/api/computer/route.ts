@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ValidationError } from "@jarvis/shared";
 import { getJarvis } from "@/lib/server/init";
 import { ok, withErrorHandling } from "@/lib/server/api";
+import { enforceRateLimit } from "@/lib/server/rate-limit";
 import { runAdHocAgentTask } from "@/lib/server/adhoc";
 import { listDevices, registerDevice, reapStaleDevices, listRecentComputerCommands } from "@jarvis/db";
 
@@ -23,6 +24,7 @@ const PairSchema = z.object({ name: z.string().min(1).max(100), platform: z.stri
  * path from the UI without needing the daemon running yet.
  */
 export const POST = withErrorHandling(async (request: Request) => {
+  enforceRateLimit(request, "computer-pair", 10, 60_000);
   const body = await request.json().catch(() => null);
   const parsed = PairSchema.safeParse(body);
   if (!parsed.success) throw new ValidationError("Invalid device pairing payload", parsed.error.flatten());

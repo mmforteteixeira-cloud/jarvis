@@ -258,6 +258,23 @@ export const content = sqliteTable("content", {
   ...timestamps,
 });
 
+export const reminders = sqliteTable(
+  "reminders",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    message: text("message").notNull(),
+    dueAt: text("due_at").notNull(),
+    status: text("status").notNull().default("PENDING"),
+    createdAt: text("created_at").notNull(),
+    firedAt: text("fired_at"),
+  },
+  (t) => ({
+    userIdx: index("reminders_user_idx").on(t.userId),
+    statusDueIdx: index("reminders_status_due_idx").on(t.status, t.dueAt),
+  }),
+);
+
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value", { mode: "json" }).$type<unknown>(),

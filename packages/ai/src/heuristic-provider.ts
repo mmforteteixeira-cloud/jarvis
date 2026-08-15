@@ -24,4 +24,16 @@ export class HeuristicProvider implements AIProvider {
 
     return { text, providerName: this.name, model: this.model, mode: this.mode };
   }
+
+  async completeStream(request: AICompletionRequest, onToken: (delta: string) => void): Promise<AICompletionResult> {
+    const result = await this.complete(request);
+    // No real model to stream from — simulate incremental delivery so the
+    // UI's streaming path is exercised identically in DEMO mode.
+    const words = result.text.split(/(?<=\s)/);
+    for (const word of words) {
+      onToken(word);
+      await new Promise((resolve) => setTimeout(resolve, 12));
+    }
+    return result;
+  }
 }

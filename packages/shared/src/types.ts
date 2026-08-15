@@ -140,6 +140,22 @@ export interface Message {
 }
 
 // ---------------------------------------------------------------------------
+// Reminders / Automations
+// ---------------------------------------------------------------------------
+
+export type ReminderStatus = "PENDING" | "FIRED" | "CANCELLED";
+
+export interface Reminder {
+  id: string;
+  userId: string;
+  message: string;
+  dueAt: string;
+  status: ReminderStatus;
+  createdAt: string;
+  firedAt?: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Tools / Agents
 // ---------------------------------------------------------------------------
 

@@ -139,6 +139,35 @@ whichever is configured; the Planner, JARVIS Core's chat path, and the
 Content Agent all go through it, so adding a fourth provider (or changing
 which one is default) is a one-file change.
 
+### Streaming
+
+`AIProvider` also has `completeStream(request, onToken)` — same contract as
+`complete()`, but calls `onToken` with each incremental chunk as it arrives
+and still resolves with the full result at the end. `HeuristicProvider`
+simulates it (splits its canned response into word-sized chunks with a
+small delay) so the streaming code path is exercised identically in DEMO
+mode. `POST /api/chat/stream` is the SSE endpoint that uses it: tool and
+goal intents resolve immediately (a computer command or a project plan
+isn't meaningfully "streamable") and are sent as one `final` event; a plain
+conversational reply streams `token` events as they arrive, then a closing
+`final` event with the same shape `POST /api/chat` returns non-streamed —
+`JarvisCore.prepareChatStream()` is what both endpoints share, so the
+routing logic (tool → reminder → utility → goal → plain chat) lives in
+exactly one place.
+
+### Rate limiting
+
+`packages/security/src/rate-limit.ts` is a small in-memory fixed-window
+limiter — no external store, since JARVIS runs as a single local process
+per user rather than a multi-instance service. `apps/web/lib/server/rate-limit.ts`
+wraps it for route handlers (`enforceRateLimit(request, routeName, limit,
+windowMs)`, keyed by `x-forwarded-for` when present, falling back to a
+fixed `"local"` key). Applied to the routes that call the AI provider or
+dispatch agent/task execution (`/api/chat`, `/api/chat/stream`,
+`/api/tasks/[id]/execute`, `/api/computer`) — not to read-only GETs. This
+exists to stop a runaway client loop, not to defend a public multi-tenant
+API.
+
 ## Computer Agent: a fourth deployable, on purpose
 
 Every other agent runs in-process with the web server or the worker.

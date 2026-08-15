@@ -2,6 +2,7 @@ import { createLogger } from "@jarvis/shared";
 import { bootstrap } from "./bootstrap.js";
 import { runSchedulerTick } from "./scheduler.js";
 import { runRetryTick } from "./retry.js";
+import { runReminderTick } from "./reminders.js";
 import { beat } from "./heartbeat.js";
 
 const logger = createLogger("worker");
@@ -27,6 +28,7 @@ async function main() {
     try {
       await runSchedulerTick(taskEngine);
       await runRetryTick(taskEngine, user.id);
+      await runReminderTick();
     } catch (error) {
       logger.error("Scheduler tick failed", { error: error instanceof Error ? error.message : String(error) });
     }

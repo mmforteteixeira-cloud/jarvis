@@ -40,6 +40,12 @@ export class ApprovalRequiredError extends JarvisError {
   }
 }
 
+export class RateLimitedError extends JarvisError {
+  constructor(retryAfterMs: number) {
+    super("RATE_LIMITED", `Too many requests. Try again in ${Math.ceil(retryAfterMs / 1000)}s.`, 429, { retryAfterMs });
+  }
+}
+
 export class IntegrationNotConfiguredError extends JarvisError {
   constructor(integration: string) {
     super(

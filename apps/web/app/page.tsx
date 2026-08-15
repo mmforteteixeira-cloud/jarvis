@@ -4,6 +4,7 @@ import { TasksPanel } from "@/components/TasksPanel";
 import { AgentsPanel } from "@/components/AgentsPanel";
 import { ActivityPanel } from "@/components/ActivityPanel";
 import { SystemStatusPanel } from "@/components/SystemStatusPanel";
+import { RemindersPanel } from "@/components/RemindersPanel";
 import { PermissionsBanner } from "@/components/PermissionsBanner";
 import { JarvisHero } from "@/components/JarvisHero";
 import { Card } from "@/components/ui/Card";
@@ -28,10 +29,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         <ProjectsPanel />
         <TasksPanel />
         <ActivityPanel />
+        <RemindersPanel />
       </div>
     </div>
   );

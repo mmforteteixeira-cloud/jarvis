@@ -33,4 +33,21 @@ export class AnthropicProvider implements AIProvider {
 
     return { text, providerName: this.name, model: this.model, mode: this.mode };
   }
+
+  async completeStream(request: AICompletionRequest, onToken: (delta: string) => void): Promise<AICompletionResult> {
+    const stream = this.client.messages.stream({
+      model: this.model,
+      max_tokens: request.maxTokens ?? 1024,
+      temperature: request.temperature,
+      system: request.system,
+      messages: request.messages
+        .filter((m) => m.role !== "system")
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+    });
+
+    stream.on("text", (delta) => onToken(delta));
+    const text = await stream.finalText();
+
+    return { text, providerName: this.name, model: this.model, mode: this.mode };
+  }
 }
