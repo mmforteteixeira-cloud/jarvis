@@ -144,7 +144,7 @@ provider is configured.
 
 **How to run it:** see SETUP.md. Short version: `cd apps/computer-agent`,
 `cp .env.example .env`, fill in `COMPUTER_AGENT_TOKEN` (same value as the
-server's), `pnpm dev`.
+server's), `pnpm computer:doctor` to check readiness, `pnpm dev`.
 
 **Platform support:** macOS is the primary target (`open -a`,
 `open <url>`, `screencapture`). Linux equivalents (`xdg-open`, `scrot`/
@@ -154,6 +154,28 @@ and are real, not stubs, but weren't verified against a real display
 (this project was built in a headless container). Windows is not
 implemented; every executor throws a clear "not implemented for this
 platform" error rather than silently no-op'ing.
+
+**`pnpm computer:doctor`** — read-only diagnostic (`apps/computer-agent/src/doctor.ts`),
+checks macOS/Node/pnpm versions, daemon config, workspace writability,
+macOS permissions (see SETUP.md), and JARVIS server reachability. Named
+`computer:doctor` rather than `doctor` specifically because pnpm 10 ships
+its own built-in `pnpm doctor` command that would otherwise silently
+shadow a same-named package script — discovered by actually running it
+and getting empty output instead of the expected diagnostics. Deliberately
+has zero imports from any `@jarvis/*` package, so it stays useful even if
+something else in the build is broken.
+
+**Dependency note:** the daemon's `package.json` lists only
+`@jarvis/security` and `@jarvis/shared` — not `@jarvis/db` — so it never
+needs `better-sqlite3`'s native module just to start. This required a
+real fix during macOS-readiness review: `@jarvis/security`'s barrel
+export included `policy.ts`, which imported `@jarvis/db` at module
+top-level, so merely importing `WorkspaceSandbox` from the daemon
+transitively loaded `better-sqlite3` anyway. `policy.ts` now lazy-loads
+`@jarvis/db` via dynamic `import()` inside `enforceAction`/`approveAction`/
+`denyAction` (the only functions that need it) instead of at the top of
+the file. Verified directly: the daemon's imports succeed even with the
+`better-sqlite3` native binding deliberately deleted.
 
 ### Autostart (manual only — nothing is installed automatically)
 

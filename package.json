@@ -15,6 +15,7 @@
     "build:packages": "pnpm -r --filter=./packages/** build",
     "start:worker": "pnpm --filter @jarvis/worker start",
     "start:computer-agent": "pnpm --filter @jarvis/computer-agent start",
+    "computer:doctor": "pnpm --filter @jarvis/computer-agent run computer:doctor",
     "typecheck": "pnpm build:packages && pnpm -r run typecheck",
     "test": "vitest run",
     "test:watch": "vitest",

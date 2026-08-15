@@ -1,4 +1,3 @@
-import { listPermissions, requestPermission, resolvePermission, type RequestPermissionInput } from "@jarvis/db";
 import type { AgentType, PermissionRequest, RiskLevel } from "@jarvis/shared";
 import { classifyAction } from "./risk.js";
 
@@ -15,6 +14,18 @@ export type EnforceActionResult =
   | { allowed: false; riskLevel: RiskLevel; permissionRequest: PermissionRequest };
 
 /**
+ * `@jarvis/db` (and its native better-sqlite3 dependency) is imported
+ * lazily, on first actual call, rather than at module top-level. This
+ * package is also imported by apps/computer-agent for WorkspaceSandbox /
+ * computer-policy — a daemon that never touches a database shouldn't need
+ * a working native module build just to start. Only the functions in this
+ * file (which apps/web and apps/worker actually call) trigger the load.
+ */
+async function db() {
+  return import("@jarvis/db");
+}
+
+/**
  * The single choke point every agent/tool call must pass through before it
  * touches the outside world. LOW_RISK actions execute immediately.
  * MEDIUM_RISK and HIGH_RISK actions are blocked and recorded as a pending
@@ -27,6 +38,8 @@ export async function enforceAction(input: EnforceActionInput): Promise<EnforceA
   if (riskLevel === "LOW_RISK") {
     return { allowed: true, riskLevel };
   }
+
+  const { listPermissions, requestPermission } = await db();
 
   // A task resumed after approval re-runs its agent from the top — look for
   // an already-APPROVED request for this exact task+action before asking
@@ -47,21 +60,22 @@ export async function enforceAction(input: EnforceActionInput): Promise<EnforceA
     }
   }
 
-  const permInput: RequestPermissionInput = {
+  const permissionRequest = await requestPermission({
     taskId: input.taskId ?? null,
     agentType: input.agentType ?? null,
     action: input.action,
     riskLevel,
     reason: input.reason,
-  };
-  const permissionRequest = await requestPermission(permInput);
+  });
   return { allowed: false, riskLevel, permissionRequest };
 }
 
 export async function approveAction(permissionRequestId: string, resolvedBy = "user"): Promise<PermissionRequest> {
+  const { resolvePermission } = await db();
   return resolvePermission(permissionRequestId, "APPROVED", resolvedBy);
 }
 
 export async function denyAction(permissionRequestId: string, resolvedBy = "user"): Promise<PermissionRequest> {
+  const { resolvePermission } = await db();
   return resolvePermission(permissionRequestId, "DENIED", resolvedBy);
 }

@@ -10,7 +10,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "computer:doctor": "tsx src/doctor.ts"
   },
   "dependencies": {
     "@jarvis/security": "workspace:*",

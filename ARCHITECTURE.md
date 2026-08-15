@@ -65,7 +65,14 @@ a daemon that polls a remote queue and executes locally) — no business
 logic lives in any of them. `apps/computer-agent` deliberately does *not*
 depend on `@jarvis/db` (it never touches the database directly, only HTTP)
 so it stays lightweight and would work unmodified even if the JARVIS
-server ran on a different machine.
+server ran on a different machine — its `package.json` doesn't list `@jarvis/db`,
+and `@jarvis/security/src/policy.ts` (the one file in that package that
+needs a database) lazy-loads it with a dynamic `import()` on first actual
+call, rather than at module top-level, specifically so that importing
+`WorkspaceSandbox` or `computer-policy` — which is all the daemon needs —
+never pulls `better-sqlite3`'s native module into the daemon's process.
+Verified directly: the daemon's imports succeed even with the
+`better-sqlite3` native binding deliberately broken.
 
 ## Database
 

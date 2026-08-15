@@ -78,6 +78,20 @@ Edit `apps/computer-agent/.env`:
   (an accidental `pnpm dev` in this directory shouldn't silently start a
   system-control process).
 
+Before starting it for the first time (especially on macOS), run the
+diagnostic:
+
+```bash
+pnpm computer:doctor
+```
+
+This is read-only — it checks your OS/Node/pnpm versions, the daemon's
+config, workspace writability, macOS permissions (see PERMISSIONS below),
+and reachability to the JARVIS server, and tells you exactly what to fix.
+It never installs anything, never changes a permission, and never runs a
+destructive command. See "macOS permissions" below for what it checks and
+why.
+
 Then:
 
 ```bash
@@ -93,6 +107,40 @@ updates immediately instead of waiting for the staleness timeout.
 
 To install it permanently (start on login), see the "Autostart" section
 of AGENTS.md — JARVIS does not install any startup service on its own.
+
+### macOS permissions
+
+The daemon needs **one** macOS permission for its current functionality:
+
+- **Screen Recording** — required by the `screencapture` command line tool
+  since macOS 10.15 for the `SCREENSHOT` command. Grant it to whichever
+  app you actually run the daemon from (Terminal, iTerm2, VS Code's
+  integrated terminal, ...) via **System Settings → Privacy & Security →
+  Screen Recording**, then restart that app. `pnpm computer:doctor` checks
+  this for you by taking one real, throwaway screenshot (deleted
+  immediately) — that's the only reliable way to ask macOS whether the
+  permission is already granted; there's no side-effect-free API for it.
+  If it's not granted, `screencapture` fails and macOS itself will show
+  the permission prompt the first time you actually try a `SCREENSHOT`
+  command from JARVIS, at which point you can grant it and retry.
+
+Two permissions are explicitly **not** needed today:
+
+- **Accessibility / Automation** — `OPEN_APPLICATION` uses `open -a`
+  (LaunchServices, the same mechanism as double-clicking an app in
+  Finder), which needs no special permission. This would only become
+  relevant for a future click/type UI-scripting feature, which doesn't
+  exist yet.
+- **Full Disk Access** — only relevant if you set `COMPUTER_AGENT_WORKSPACE`
+  to somewhere under Desktop/Documents/Downloads/Pictures/Movies/Music.
+  The default (`~/JARVIS/workspace`) avoids this entirely. If you do point
+  it at a protected folder, macOS will show its own folder-access prompt
+  the first time a file operation touches it — `pnpm computer:doctor`
+  warns you about this in advance so it isn't a surprise.
+
+Nothing here is granted automatically — every permission is something
+*you* approve through macOS's own System Settings or its own prompt.
+JARVIS never modifies TCC/permission settings itself.
 
 ## Build for production
 
