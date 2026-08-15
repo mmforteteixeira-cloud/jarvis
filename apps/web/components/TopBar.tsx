@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client/api";
 import { StatusBadge } from "./ui/StatusDot";
+import { NotificationsBell } from "./NotificationsBell";
 import { useAppUI } from "./providers";
 
 interface SystemStatus {
@@ -62,6 +63,7 @@ export function TopBar() {
             )}
           </>
         )}
+        <NotificationsBell />
       </div>
     </header>
   );
