@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client/api";
 import { StatusBadge } from "./ui/StatusDot";
+import { useAppUI } from "./providers";
 
 interface SystemStatus {
   status: "ONLINE" | "BUSY" | "OFFLINE";
@@ -12,6 +13,7 @@ interface SystemStatus {
 
 export function TopBar() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
+  const { setSidebarOpen } = useAppUI();
 
   useEffect(() => {
     let cancelled = false;
@@ -32,15 +34,26 @@ export function TopBar() {
   }, []);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface/70 px-6">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface/70 px-4 sm:px-6">
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(true)}
+          className="rounded-md border border-border p-1.5 text-ink-dim hover:text-ink lg:hidden"
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
         <StatusBadge status={status?.status ?? "OFFLINE"} />
-        <span className="text-sm text-ink-dim">"How can I help?"</span>
+        <span className="hidden text-sm text-ink-dim sm:inline">"How can I help?"</span>
       </div>
-      <div className="flex items-center gap-4 font-mono text-[11px] text-ink-faint">
+      <div className="flex items-center gap-3 font-mono text-[11px] text-ink-faint sm:gap-4">
         {status && (
           <>
-            <span title={`AI provider: ${status.aiProvider.name} (${status.aiProvider.model})`}>
+            <span
+              className="hidden sm:inline"
+              title={`AI provider: ${status.aiProvider.name} (${status.aiProvider.model})`}
+            >
               AI: <span className={status.aiProvider.mode === "REAL" ? "text-accent" : "text-signal-warn"}>{status.aiProvider.mode}</span>
             </span>
             <span>Running: {status.counts.runningTasks}</span>

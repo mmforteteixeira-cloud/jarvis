@@ -44,16 +44,16 @@ export class JarvisCore {
     private readonly taskEngine: TaskEngine,
   ) {}
 
-  private async resolveConversation(userId: string, conversationId?: string): Promise<Conversation> {
+  private async resolveConversation(userId: string, conversationId?: string, firstMessage?: string): Promise<Conversation> {
     if (conversationId) {
       const existing = await getConversation(conversationId);
       if (existing) return existing;
     }
-    return createConversation(userId, "New conversation");
+    return createConversation(userId, deriveConversationTitle(firstMessage));
   }
 
   async chat(req: ChatRequest): Promise<ChatResponse> {
-    const conversation = await this.resolveConversation(req.userId, req.conversationId);
+    const conversation = await this.resolveConversation(req.userId, req.conversationId, req.message);
     await addMessage(conversation.id, "user", req.message);
 
     const toolIntent = await parseToolIntent(req.message);
@@ -117,6 +117,12 @@ export class JarvisCore {
 
     return { conversationId: conversation.id, message: assistantMessage, aiMode: result.mode };
   }
+}
+
+function deriveConversationTitle(firstMessage?: string): string {
+  const trimmed = firstMessage?.trim();
+  if (!trimmed) return "New conversation";
+  return trimmed.length > 60 ? `${trimmed.slice(0, 57)}...` : trimmed;
 }
 
 function formatPlanSummary(plan: OrchestratePlanResult): string {

@@ -14,8 +14,10 @@ const STATE_LABEL: Record<VoiceState, string> = {
 
 export function TalkButton({
   onFinalTranscript,
+  onStateChange,
 }: {
   onFinalTranscript: (text: string) => Promise<string | undefined>;
+  onStateChange?: (state: VoiceState) => void;
 }) {
   const [state, setState] = useState<VoiceState>("IDLE");
   const [supported, setSupported] = useState(true);
@@ -25,7 +27,14 @@ export function TalkButton({
     const stt = new BrowserSTTProvider();
     const tts = new BrowserTTSProvider();
     setSupported(stt.mode === "REAL");
-    conversationRef.current = new VoiceConversation(stt, tts, { onStateChange: setState });
+    conversationRef.current = new VoiceConversation(stt, tts, {
+      onStateChange: (next) => {
+        setState(next);
+        onStateChange?.(next);
+      },
+    });
+    // onStateChange intentionally excluded — captured once at setup, matches VoiceConversation's own lifecycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleClick() {

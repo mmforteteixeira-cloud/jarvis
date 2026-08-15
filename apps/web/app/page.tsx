@@ -5,6 +5,7 @@ import { AgentsPanel } from "@/components/AgentsPanel";
 import { ActivityPanel } from "@/components/ActivityPanel";
 import { SystemStatusPanel } from "@/components/SystemStatusPanel";
 import { PermissionsBanner } from "@/components/PermissionsBanner";
+import { JarvisHero } from "@/components/JarvisHero";
 import { Card } from "@/components/ui/Card";
 
 export default function DashboardPage() {
@@ -12,9 +13,11 @@ export default function DashboardPage() {
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
       <PermissionsBanner />
 
+      <JarvisHero />
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card title="JARVIS · Chat" className="lg:col-span-2 h-[520px] flex flex-col">
-          <div className="flex-1 min-h-0">
+        <Card title="JARVIS · Chat" className="lg:col-span-2 flex h-[560px] flex-col">
+          <div className="min-h-0 flex-1">
             <ChatPanel />
           </div>
         </Card>
