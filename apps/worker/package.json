@@ -1,0 +1,23 @@
+{
+  "name": "@jarvis/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@jarvis/agents": "workspace:*",
+    "@jarvis/core": "workspace:*",
+    "@jarvis/db": "workspace:*",
+    "@jarvis/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.2",
+    "@types/node": "^22.9.0"
+  }
+}

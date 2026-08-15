@@ -1,0 +1,40 @@
+{
+  "name": "@jarvis/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@jarvis/agents": "workspace:*",
+    "@jarvis/ai": "workspace:*",
+    "@jarvis/core": "workspace:*",
+    "@jarvis/db": "workspace:*",
+    "@jarvis/memory": "workspace:*",
+    "@jarvis/security": "workspace:*",
+    "@jarvis/shared": "workspace:*",
+    "@jarvis/voice": "workspace:*",
+    "next": "^16.3.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "autoprefixer": "^10.5.4",
+    "eslint": "^10.8.1",
+    "eslint-config-next": "^16.3.1",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.6.3"
+  }
+}

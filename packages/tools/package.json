@@ -1,0 +1,16 @@
+{
+  "name": "@jarvis/tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": "./dist/index.js" },
+  "scripts": { "build": "tsc", "typecheck": "tsc --noEmit" },
+  "dependencies": {
+    "@jarvis/security": "workspace:*",
+    "@jarvis/shared": "workspace:*",
+    "playwright": "^1.48.2"
+  },
+  "devDependencies": { "typescript": "^5.6.3", "@types/node": "^22.9.0" }
+}
