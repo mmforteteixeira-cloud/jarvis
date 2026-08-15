@@ -39,7 +39,10 @@ simulated result as a real one. If something isn't wired up yet, it says so.
   "quanto é 15% de 200" and "que horas são" answer instantly with no AI
   call needed (`packages/core/src/utility-intent.ts`); "lembra-me amanhã
   às 10 de..." creates a real reminder the background worker fires as a
-  notification when due (`packages/core/src/reminder-intent.ts`).
+  notification when due (`packages/core/src/reminder-intent.ts`); "que
+  tempo faz em Lisboa" / "news about X" give real answers when
+  `WEATHER_API_KEY`/`NEWS_API_KEY` are set, or an honest "not configured"
+  otherwise (`packages/core/src/information-intent.ts`).
 - **Security layer** — every non-trivial action is risk-classified
   (LOW/MEDIUM/HIGH) and MEDIUM/HIGH actions block on an explicit approval
   you grant from the dashboard.

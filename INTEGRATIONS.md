@@ -20,6 +20,21 @@ Each entry reports `status` (`CONNECTED` / `NOT_CONNECTED` /
 | Computer Agent | Computer | `COMPUTER_AGENT_TOKEN` | Architecture-only regardless — see AGENTS.md |
 | SQLite | Database | `DATABASE_URL` (optional — defaults to a local file) | — |
 | Brave Search | Search | `SEARCH_API_KEY`, `SEARCH_PROVIDER` | none — Research Agent reports NOT_CONFIGURED |
+| OpenWeatherMap | Weather | `WEATHER_API_KEY` | none — weather questions in chat get an honest "not configured" reply |
+| NewsAPI | News | `NEWS_API_KEY` | none — news questions in chat get an honest "not configured" reply |
+
+## Setting up weather and news (chat questions)
+
+Both have free tiers and need nothing beyond the key:
+
+- Weather: [openweathermap.org/api](https://openweathermap.org/api) → `WEATHER_API_KEY`.
+- News: [newsapi.org](https://newsapi.org) → `NEWS_API_KEY`.
+
+Once set, "que tempo faz em Lisboa" / "what's the weather in Lisbon" and
+"notícias sobre X" / "news about X" answer directly in chat
+(`packages/core/src/information-intent.ts` +
+`packages/tools/src/{weather,news}-tool.ts`) — no agent/task dispatch
+involved, just a direct API call and a formatted reply.
 
 ## Setting up Gmail (Email Agent)
 

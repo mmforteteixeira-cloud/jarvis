@@ -103,6 +103,22 @@ const SPECS: IntegrationSpec[] = [
     detailWhenConnected: "Research Agent can search the web.",
     detailWhenMissing: "Research Agent cannot search the web without a SEARCH_API_KEY.",
   },
+  {
+    id: "weather",
+    category: "WEATHER",
+    name: "OpenWeatherMap",
+    requiredEnvVars: ["WEATHER_API_KEY"],
+    detailWhenConnected: "JARVIS can answer real weather questions in chat.",
+    detailWhenMissing: "Weather questions get an honest \"not configured\" reply instead of a guess.",
+  },
+  {
+    id: "news",
+    category: "NEWS",
+    name: "NewsAPI",
+    requiredEnvVars: ["NEWS_API_KEY"],
+    detailWhenConnected: "JARVIS can fetch real recent headlines in chat.",
+    detailWhenMissing: "News questions get an honest \"not configured\" reply instead of a guess.",
+  },
 ];
 
 export function getIntegrationDescriptors(): IntegrationDescriptor[] {

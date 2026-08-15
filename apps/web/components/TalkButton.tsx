@@ -37,6 +37,14 @@ export function TalkButton({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function beginListening(conversation: VoiceConversation) {
+    conversation.startListening(async (text) => {
+      const reply = await onFinalTranscript(text);
+      if (reply) await conversation.speak(reply);
+      else setState("IDLE");
+    });
+  }
+
   async function handleClick() {
     const conversation = conversationRef.current;
     if (!conversation) return;
@@ -45,13 +53,16 @@ export function TalkButton({
       conversation.stop();
       return;
     }
+    if (state === "SPEAKING") {
+      // Barge-in: interrupt JARVIS mid-sentence and start listening again,
+      // instead of forcing a second click to go from "stopped" to "listening".
+      conversation.stop();
+      beginListening(conversation);
+      return;
+    }
     if (state !== "IDLE" && state !== "ERROR") return;
 
-    conversation.startListening(async (text) => {
-      const reply = await onFinalTranscript(text);
-      if (reply) await conversation.speak(reply);
-      else setState("IDLE");
-    });
+    beginListening(conversation);
   }
 
   return (

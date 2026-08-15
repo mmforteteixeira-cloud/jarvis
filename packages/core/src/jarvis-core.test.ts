@@ -55,4 +55,20 @@ describe("JarvisCore", () => {
     expect(response.message.role).toBe("assistant");
     expect(response.conversationId).toBeTruthy();
   });
+
+  it("answers a calculator question instantly, without touching the AI provider", async () => {
+    const response = await jarvisCore.chat({ userId, message: "quanto é 6*7" });
+    expect(response.message.content).toContain("= 42");
+  });
+
+  it("reports weather questions as honestly not configured when there's no WEATHER_API_KEY", async () => {
+    const response = await jarvisCore.chat({ userId, message: "what's the weather like in Lisbon?" });
+    expect(response.message.content.toLowerCase()).toContain("not configured");
+  });
+
+  it("creates a real reminder for a reminder request", async () => {
+    const response = await jarvisCore.chat({ userId, message: "lembra-me daqui a 10 minutos de ligar ao dentista" });
+    expect(response.message.content).toContain("Reminder set");
+    expect(response.message.content).toContain("ligar ao dentista");
+  });
 });

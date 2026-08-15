@@ -7,13 +7,15 @@ import {
 } from "@jarvis/db";
 import { getAIProvider, type AIMessage } from "@jarvis/ai";
 import { saveMemory, buildMemoryContext, pruneShortTermMemory } from "@jarvis/memory";
-import { createLogger, type Conversation, type Message, type Task } from "@jarvis/shared";
+import { createLogger, IntegrationNotConfiguredError, type Conversation, type Message, type Task } from "@jarvis/shared";
+import { getCurrentWeather, getNewsHeadlines } from "@jarvis/tools";
 import { JARVIS_SYSTEM_PROMPT } from "./persona.js";
 import { Orchestrator, type OrchestratePlanResult } from "./orchestrator.js";
 import { TaskEngine } from "./task-engine.js";
 import { parseToolIntent, type ToolIntent } from "./tool-intent.js";
 import { parseUtilityIntent } from "./utility-intent.js";
 import { parseReminderIntent } from "./reminder-intent.js";
+import { parseInformationIntent, type InformationIntent } from "./information-intent.js";
 
 const logger = createLogger("core:jarvis");
 
@@ -103,6 +105,13 @@ export class JarvisCore {
       return { conversationId: conversation.id, message: assistantMessage, aiMode: "REAL" };
     }
 
+    const informationIntent = parseInformationIntent(req.message);
+    if (informationIntent) {
+      const reply = await resolveInformationIntent(informationIntent);
+      const assistantMessage = await addMessage(conversation.id, "assistant", reply);
+      return { conversationId: conversation.id, message: assistantMessage, aiMode: "REAL" };
+    }
+
     const utilityIntent = parseUtilityIntent(req.message);
     if (utilityIntent) {
       const assistantMessage = await addMessage(conversation.id, "assistant", utilityIntent.reply);
@@ -184,6 +193,25 @@ function formatPlanSummary(plan: OrchestratePlanResult): string {
     lines.join("\n") +
     `\n\nNothing has been executed yet — these are queued tasks. Tell me to run one, or open the Tasks panel.`
   );
+}
+
+async function resolveInformationIntent(intent: InformationIntent): Promise<string> {
+  try {
+    if (intent.kind === "weather") {
+      const w = await getCurrentWeather(intent.query);
+      return `Weather in ${w.location}: ${w.condition}, ${w.temperatureC}°C (feels like ${w.feelsLikeC}°C), humidity ${w.humidityPercent}%, wind ${w.windKph} km/h.`;
+    }
+
+    const headlines = await getNewsHeadlines(intent.query);
+    if (headlines.length === 0) return `No recent headlines found for "${intent.query}".`;
+    return (
+      `Recent headlines on "${intent.query}":\n` +
+      headlines.map((h, i) => `${i + 1}. ${h.title} — ${h.source}`).join("\n")
+    );
+  } catch (error) {
+    if (error instanceof IntegrationNotConfiguredError) return error.message;
+    return `Couldn't fetch ${intent.kind} right now: ${error instanceof Error ? error.message : "unknown error"}`;
+  }
 }
 
 function formatDueAt(iso: string): string {

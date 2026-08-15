@@ -230,15 +230,10 @@ never a new bespoke code path.
 
 ### Natural language → instant answers and reminders (no agent dispatch)
 
-Two more intent parsers sit alongside `tool-intent.ts` in `JarvisCore.chat`'s
-routing chain, for requests that don't need an agent or a task at all:
+Three more intent parsers sit alongside `tool-intent.ts` in
+`JarvisCore.chat`'s routing chain, for requests that don't need an agent or
+a task at all:
 
-- **`packages/core/src/utility-intent.ts`** — calculator (`packages/tools/src/calculator-tool.ts`,
-  a hand-written recursive-descent evaluator, never `eval()`) and
-  date/time (`packages/tools/src/datetime-tool.ts`). Both resolve
-  synchronously and work identically in DEMO mode — they don't need an AI
-  provider. Deliberately conservative matching (an expression must contain
-  an actual operator) so "what is 2024" isn't misread as arithmetic.
 - **`packages/core/src/reminder-intent.ts`** — "JARVIS, lembra-me amanhã às
   10 de ligar ao médico" persists a row in the `reminders` table
   (`packages/db/src/repositories/reminders.ts`). Tries AI-assisted
@@ -249,11 +244,23 @@ routing chain, for requests that don't need an agent or a task at all:
   half — it polls for due reminders on every tick and fires them as
   notifications; this only happens while the worker process is running,
   same as task retries.
+- **`packages/core/src/information-intent.ts`** — weather
+  (`packages/tools/src/weather-tool.ts`, OpenWeatherMap) and news
+  (`packages/tools/src/news-tool.ts`, NewsAPI). Same
+  `IntegrationNotConfiguredError` pattern as web search: real answers when
+  `WEATHER_API_KEY`/`NEWS_API_KEY` are set, an honest "not configured"
+  reply otherwise — never a guessed forecast or fabricated headline.
+- **`packages/core/src/utility-intent.ts`** — calculator (`packages/tools/src/calculator-tool.ts`,
+  a hand-written recursive-descent evaluator, never `eval()`) and
+  date/time (`packages/tools/src/datetime-tool.ts`). Both resolve
+  synchronously and work identically in DEMO mode — they don't need an AI
+  provider. Deliberately conservative matching (an expression must contain
+  an actual operator) so "what is 2024" isn't misread as arithmetic.
 
 Routing order in `JarvisCore.chat`/`prepareChatStream`: computer tool
-intent → reminder intent → utility intent → goal/project intent → plain
-chat (streamed via `AIProvider.completeStream`). Each tier is checked in
-order and the first match wins.
+intent → reminder intent → information intent → utility intent →
+goal/project intent → plain chat (streamed via `AIProvider.completeStream`).
+Each tier is checked in order and the first match wins.
 
 ## Email Agent — **real, needs OAuth**
 

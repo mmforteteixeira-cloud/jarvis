@@ -28,6 +28,33 @@ Brave Search's REST API (`SEARCH_API_KEY`). Throws
 into an honest `NOT_CONFIGURED` result rather than returning fabricated
 results.
 
+## Calculator (`calculator-tool.ts`)
+
+`evaluateExpression(input)` — a hand-written recursive-descent parser for
+`+ - * / % ^ ()` and decimals. Deliberately never `eval()`/`Function()`,
+since this parses untrusted chat input directly. Wired into chat via
+`packages/core/src/utility-intent.ts`, which only routes to it when the
+message actually contains an operator (so "what is 2024" isn't misread as
+arithmetic) — answers instantly, no AI call, works identically in DEMO mode.
+
+## Date/time (`datetime-tool.ts`)
+
+`getCurrentDateTime(locale?, timeZone?)` — wraps `Intl.DateTimeFormat`,
+no external call. Same `utility-intent.ts` routing as the calculator.
+
+## Weather (`weather-tool.ts`)
+
+OpenWeatherMap's REST API (`WEATHER_API_KEY`). Same
+`IntegrationNotConfiguredError` pattern as web search — no key means an
+honest "not configured" chat reply, never a guessed forecast. Routed via
+`packages/core/src/information-intent.ts`.
+
+## News (`news-tool.ts`)
+
+NewsAPI.org's REST API (`NEWS_API_KEY`). Same pattern as weather — real
+headlines or an honest "not configured", never fabricated. Also routed via
+`information-intent.ts`.
+
 ## BrowserTools (`browser-tools.ts`)
 
 Real Playwright + Chromium. `navigateAndRead(url)` returns the final URL,

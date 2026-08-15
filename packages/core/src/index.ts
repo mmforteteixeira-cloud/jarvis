@@ -8,3 +8,4 @@ export * from "./integrations.js";
 export * from "./tool-intent.js";
 export * from "./utility-intent.js";
 export * from "./reminder-intent.js";
+export * from "./information-intent.js";

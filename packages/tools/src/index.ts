@@ -5,3 +5,5 @@ export * from "./web-search-tool.js";
 export * from "./browser-tools.js";
 export * from "./calculator-tool.js";
 export * from "./datetime-tool.js";
+export * from "./weather-tool.js";
+export * from "./news-tool.js";

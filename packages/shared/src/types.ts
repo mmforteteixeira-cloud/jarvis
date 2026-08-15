@@ -261,6 +261,8 @@ export const INTEGRATION_CATEGORIES = [
   "COMPUTER",
   "DATABASE",
   "SEARCH",
+  "WEATHER",
+  "NEWS",
 ] as const;
 export type IntegrationCategory = (typeof INTEGRATION_CATEGORIES)[number];
 
